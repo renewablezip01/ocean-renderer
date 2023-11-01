@@ -1,0 +1,11 @@
+#Cmake
+CMakeFiles
+CMakeCache.txt
+bin
+
+
+# neovim
+compile_commands.json
+.cache
+Makefile
+cmake_install.cmake
