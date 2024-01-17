@@ -2,7 +2,7 @@
 CMakeFiles
 CMakeCache.txt
 bin
-
+build/
 
 # neovim
 compile_commands.json

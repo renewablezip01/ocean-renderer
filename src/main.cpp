@@ -6,13 +6,10 @@
 
 int main(int argc, char *argv[]) {
   int screen_width = 640, screen_height = 480;
-  SDL_Window *main_window = nullptr;
   SDL_GLContext gl_context = nullptr;
   SDL_Event event = {0};
   bool should_quit = false;
 
-  // TRY-CATCH TO FACILITATE COMMON CLEAN-UP CODE
-  // INITIALIZE SDL:
   if (SDL_Init(SDL_INIT_EVENTS) < 0) {
     throw(std::string("Failed to initialize SDL: ") + SDL_GetError());
   }
@@ -26,6 +23,7 @@ int main(int argc, char *argv[]) {
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+
   SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
   SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
   SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
@@ -35,10 +33,10 @@ int main(int argc, char *argv[]) {
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
   // CREATE AND SDL WINDOW CONFIGURED FOR OPENGL:
-  if (0 == (main_window = SDL_CreateWindow(
-                "OpenGL", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                screen_width, screen_height,
-                SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE))) {
+  SDL_Window *main_window = SDL_CreateWindow(
+      "Ocean renderer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+      screen_width, screen_height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+  if (main_window == 0) {
     throw(std::string("Failed to create window: ") + SDL_GetError());
   }
 
@@ -63,6 +61,7 @@ int main(int argc, char *argv[]) {
   glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
   glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data),
                g_vertex_buffer_data, GL_STATIC_DRAW);
+
   while (!should_quit) {
     // EVENT LOOP:
     while (SDL_PollEvent(&event)) {

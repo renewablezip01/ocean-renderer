@@ -1,0 +1,4 @@
+[submodule "dependencies/SDL"]
+	path = dependencies/SDL
+	url = https://github.com/libsdl-org/SDL
+	branch = SDL2
