@@ -1,29 +1,32 @@
+#include "SDL_error.h"
+#include "SDL_keycode.h"
+#include "SDL_video.h"
+#include <GLES/gl.h>
 #include <SDL.h>
+#include <cassert>
+#include <cstdio>
 #include <glad/glad.h>
-#include <iomanip>
 #include <iostream>
 #include <string>
 
+#define GP_ERR(exp, msg) assert(((void)msg, exp))
+
+struct Vertex {};
+
 int main(int argc, char *argv[]) {
-  int screen_width = 640, screen_height = 480;
-  SDL_GLContext gl_context = nullptr;
-  SDL_Event event = {0};
-  bool should_quit = false;
+  int wnd_width = 800, wnd_height = 600;
 
-  if (SDL_Init(SDL_INIT_EVENTS) < 0) {
-    throw(std::string("Failed to initialize SDL: ") + SDL_GetError());
-  }
+  // Initialize SDL
+  GP_ERR(SDL_Init(SDL_INIT_EVENTS) >= 0, "Failed to initialize SDL");
 
-  // CONFIGURE OPENGL ATTRIBUTES USING SDL:
-  int context_flags = SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG;
-#ifdef _DEBUG
-  context_flags |= SDL_GL_CONTEXT_DEBUG_FLAG;
-#endif
+  int context_flags =
+      SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG | SDL_GL_CONTEXT_DEBUG_FLAG;
+
+  // Setup SDL window attributes for OpenGL
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, context_flags);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
   SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
   SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
   SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
@@ -32,26 +35,21 @@ int main(int argc, char *argv[]) {
   SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-  // CREATE AND SDL WINDOW CONFIGURED FOR OPENGL:
+  // Create our window using SDL
   SDL_Window *main_window = SDL_CreateWindow(
-      "Ocean renderer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-      screen_width, screen_height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-  if (main_window == 0) {
-    throw(std::string("Failed to create window: ") + SDL_GetError());
-  }
+      "Sandbox", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, wnd_width,
+      wnd_height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
-  // CREATE THE OPENGL CONTEXT AND MAKE IT CURRENT:
-  if (NULL == (gl_context = SDL_GL_CreateContext(main_window))) {
-    throw(std::string("Failed to create OpenGL context"));
-  } else
-    SDL_GL_MakeCurrent(main_window, gl_context);
+  GP_ERR(main_window != NULL, "Failed to create window");
+  SDL_GLContext gl_context = SDL_GL_CreateContext(main_window);
 
-  // INITIALIZE GLAD:
-  if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
-    throw(std::string("Failed to initialize GLAD"));
-  }
+  // Create our OpenGL context and make it current
+  GP_ERR(gl_context != NULL, "Failed to create OpenGL context in SDL");
+  SDL_GL_MakeCurrent(main_window, gl_context);
 
-  // GAME LOOP:
+  GP_ERR(gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress),
+         "Failed to initialize GLAD");
+
   static const GLfloat g_vertex_buffer_data[] = {
       -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
   };
@@ -62,16 +60,26 @@ int main(int argc, char *argv[]) {
   glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data),
                g_vertex_buffer_data, GL_STATIC_DRAW);
 
+  glViewport(0, 0, wnd_width, wnd_height);
+
+  SDL_Event event = {0};
+  bool should_quit = false;
   while (!should_quit) {
-    // EVENT LOOP:
     while (SDL_PollEvent(&event)) {
       switch (event.type) {
       case SDL_QUIT:
         should_quit = true;
         break;
+      case SDL_WINDOWEVENT:
+        if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+          SDL_GetWindowSize(main_window, &wnd_width, &wnd_height);
+          glViewport(0, 0, wnd_width, wnd_height);
+        }
+        break;
       case SDL_KEYDOWN:
         switch (event.key.keysym.sym) {
         case SDLK_ESCAPE:
+          std::cout << "Closing" << std::endl;
           should_quit = true;
           break;
         }
@@ -103,12 +111,10 @@ int main(int argc, char *argv[]) {
     // PRESENT BACKBUFFER:
     SDL_GL_SwapWindow(main_window);
   }
-  if (gl_context)
-    SDL_GL_DeleteContext(gl_context);
 
-  if (main_window)
-    SDL_DestroyWindow(main_window);
+  // Cleanup
+  SDL_GL_DeleteContext(gl_context);
+  SDL_DestroyWindow(main_window);
   SDL_Quit();
-
   return 0;
 }
