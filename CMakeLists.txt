@@ -10,10 +10,12 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+find_package(glm CONFIG REQUIRED)
+
 add_subdirectory(dependencies/glad/)
 add_subdirectory(dependencies/SDL/)
 
 include_directories(dependencies/SDL/include/)
 
-add_executable(GraphicsProgramming src/main.cpp)
-target_link_libraries(GraphicsProgramming SDL2-static glad)
+add_executable(GraphicsProgramming src/main.cpp src/core/localFile.cpp src/core/localFile.hpp)
+target_link_libraries(GraphicsProgramming SDL2-static glad glm::glm)
