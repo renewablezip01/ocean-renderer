@@ -73,12 +73,28 @@ int main(int argc, char *argv[]) {
       Vertex(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)),
   };
 
+  GLuint vao;
+  glGenVertexArrays(1, &vao);
+  glBindVertexArray(vao);
+
   // Create a VBO = vertex buffer object to store our vertices
   GLuint vertexbuffer;
   glGenBuffers(1, &vertexbuffer);
   glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
   glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data),
                g_vertex_buffer_data, GL_STATIC_DRAW);
+
+  glVertexAttribPointer(0, sizeof(glm::vec3) / sizeof(float), GL_FLOAT,
+                        GL_FALSE, sizeof(Vertex),
+                        (void *)offsetof(Vertex, position));
+  glVertexAttribPointer(1, sizeof(glm::vec4) / sizeof(float), GL_FLOAT,
+                        GL_FALSE, sizeof(Vertex),
+                        (void *)offsetof(Vertex, color));
+
+  glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
+
+  glBindVertexArray(NULL);
 
   // Create our base vertex shader
   std::string vertexShaderSrc =
@@ -118,6 +134,8 @@ int main(int argc, char *argv[]) {
   glAttachShader(shaderProgramId, vertShaderId);
   glAttachShader(shaderProgramId, fragShaderId);
   glLinkProgram(shaderProgramId);
+  glDeleteShader(vertShaderId);
+  glDeleteShader(fragShaderId);
 
   glGetProgramiv(shaderProgramId, GL_LINK_STATUS, &success);
   if (!success) {
@@ -125,9 +143,6 @@ int main(int argc, char *argv[]) {
     std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
               << infoLog << std::endl;
   }
-  glUseProgram(shaderProgramId);
-  glDeleteShader(vertShaderId);
-  glDeleteShader(fragShaderId);
 
   glViewport(0, 0, wnd_width, wnd_height);
   SDL_Event event = {0};
@@ -158,22 +173,12 @@ int main(int argc, char *argv[]) {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-    glVertexAttribPointer(0, sizeof(glm::vec3) / sizeof(float), GL_FLOAT,
-                          GL_FALSE, sizeof(Vertex),
-                          (void *)offsetof(Vertex, position));
-    glVertexAttribPointer(1, sizeof(glm::vec4) / sizeof(float), GL_FLOAT,
-                          GL_FALSE, sizeof(Vertex),
-                          (void *)offsetof(Vertex, color));
-
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
+    glUseProgram(shaderProgramId);
+    glBindVertexArray(vao);
 
     // Draw the triangle !
     glDrawArrays(GL_TRIANGLES, 0,
                  3); // Starting from vertex 0; 3 vertices total -> 1 triangle
-
-    glDisableVertexAttribArray(0);
 
     // Swap the front with the back buffer
     SDL_GL_SwapWindow(main_window);
