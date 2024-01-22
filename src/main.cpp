@@ -67,10 +67,33 @@ int main(int argc, char *argv[]) {
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-  static const Vertex g_vertex_buffer_data[] = {
-      Vertex(glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)),
-      Vertex(glm::vec3(1.0f, -1.0f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)),
-      Vertex(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)),
+  static const Vertex vertices[] = {
+      // Vertex(glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec4(1.0f, 0.0f,
+      // 0.0f, 1.0f)),
+      // Vertex(glm::vec3(0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f,
+      // 0.0f, 1.0f)),
+      // Vertex(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)),
+
+      Vertex(glm::vec3(0.5f, 0.5f, 0.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)),
+      Vertex(glm::vec3(0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)),
+      Vertex(glm::vec3(-0.5f, 0.5f, 0.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)),
+      Vertex(glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)),
+
+      // Vertex(glm::vec3(0.5f, 0.5f, 0.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)),
+      // Vertex(glm::vec3(0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f,
+      // 0.0f, 1.0f)),
+      // Vertex(glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec4(0.0f,
+      // 0.0f, 1.0f, 1.0f)),
+      // Vertex(glm::vec3(-0.5f, 0.5f, 0.0f), glm::vec4(0.0f, 1.0f,
+      // 0.0f, 1.0f)),
+  };
+
+  static const unsigned int indices[] = {
+      // First triangle
+      0, 1, 2,
+      // Second triangle
+      1, 3, 2
+      // End
   };
 
   GLuint vao;
@@ -81,12 +104,18 @@ int main(int argc, char *argv[]) {
   GLuint vertexbuffer;
   glGenBuffers(1, &vertexbuffer);
   glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data),
-               g_vertex_buffer_data, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+  GLuint ebo;
+  glGenBuffers(1, &ebo);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices,
+               GL_STATIC_DRAW);
 
   glVertexAttribPointer(0, sizeof(glm::vec3) / sizeof(float), GL_FLOAT,
                         GL_FALSE, sizeof(Vertex),
                         (void *)offsetof(Vertex, position));
+
   glVertexAttribPointer(1, sizeof(glm::vec4) / sizeof(float), GL_FLOAT,
                         GL_FALSE, sizeof(Vertex),
                         (void *)offsetof(Vertex, color));
@@ -94,7 +123,7 @@ int main(int argc, char *argv[]) {
   glEnableVertexAttribArray(0);
   glEnableVertexAttribArray(1);
 
-  glBindVertexArray(NULL);
+  glBindVertexArray(0);
 
   // Create our base vertex shader
   std::string vertexShaderSrc =
@@ -144,6 +173,7 @@ int main(int argc, char *argv[]) {
               << infoLog << std::endl;
   }
 
+  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
   glViewport(0, 0, wnd_width, wnd_height);
   SDL_Event event = {0};
   bool should_quit = false;
@@ -177,8 +207,8 @@ int main(int argc, char *argv[]) {
     glBindVertexArray(vao);
 
     // Draw the triangle !
-    glDrawArrays(GL_TRIANGLES, 0,
-                 3); // Starting from vertex 0; 3 vertices total -> 1 triangle
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
 
     // Swap the front with the back buffer
     SDL_GL_SwapWindow(main_window);
