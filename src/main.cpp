@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
               << infoLog << std::endl;
   }
 
-  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+  // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
   glViewport(0, 0, wnd_width, wnd_height);
   SDL_Event event = {0};
   bool should_quit = false;
@@ -191,6 +191,12 @@ int main(int argc, char *argv[]) {
         break;
       case SDL_KEYDOWN:
         switch (event.key.keysym.sym) {
+        case SDLK_DOWN:
+          glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+          break;
+        case SDLK_UP:
+          glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+          break;
         case SDLK_ESCAPE:
           should_quit = true;
           break;
