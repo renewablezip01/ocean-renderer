@@ -1,20 +1,33 @@
 #include "SDL_error.h"
 #include "SDL_keycode.h"
 #include "SDL_video.h"
+#include "core/localFile.hpp"
 #include <GLES/gl.h>
+#include <GLES2/gl2.h>
 #include <SDL.h>
 #include <cassert>
+#include <cstddef>
 #include <cstdio>
 #include <glad/glad.h>
+#include <glm/glm.hpp>
+#include <glm/vec3.hpp>
 #include <iostream>
+#include <stdio.h>
 #include <string>
 
 #define GP_ERR(exp, msg) assert(((void)msg, exp))
 
-struct Vertex {};
+struct Vertex {
+  glm::vec3 position;
+  glm::vec4 color;
+  Vertex(const glm::vec3 &position, const glm::vec4 &color)
+      : position(position), color(color) {}
+};
 
 int main(int argc, char *argv[]) {
   int wnd_width = 800, wnd_height = 600;
+  // std::string fragmentShader =
+  // core::LocalFile::ReadFileData("./src/shaders/base.glsl");
 
   // Initialize SDL
   GP_ERR(SDL_Init(SDL_INIT_EVENTS) >= 0, "Failed to initialize SDL");
@@ -50,18 +63,73 @@ int main(int argc, char *argv[]) {
   GP_ERR(gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress),
          "Failed to initialize GLAD");
 
-  static const GLfloat g_vertex_buffer_data[] = {
-      -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+  // Enable alpha blending after loading glad
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  static const Vertex g_vertex_buffer_data[] = {
+      Vertex(glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)),
+      Vertex(glm::vec3(1.0f, -1.0f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)),
+      Vertex(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)),
   };
 
+  // Create a VBO = vertex buffer object to store our vertices
   GLuint vertexbuffer;
   glGenBuffers(1, &vertexbuffer);
   glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
   glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data),
                g_vertex_buffer_data, GL_STATIC_DRAW);
 
-  glViewport(0, 0, wnd_width, wnd_height);
+  // Create our base vertex shader
+  std::string vertexShaderSrc =
+      core::LocalFile::ReadFileData("./src/shaders/base.vert");
+  GLuint vertShaderId = glCreateShader(GL_VERTEX_SHADER);
+  const char *vertexShaderRawSource = vertexShaderSrc.c_str();
+  glShaderSource(vertShaderId, 1, &vertexShaderRawSource, NULL);
+  glCompileShader(vertShaderId);
 
+  // Check if the shader compilation succeeded
+  int success;
+  char infoLog[512];
+  glGetShaderiv(vertShaderId, GL_COMPILE_STATUS, &success);
+  if (!success) {
+    glGetShaderInfoLog(vertShaderId, 512, NULL, infoLog);
+    std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n"
+              << infoLog << std::endl;
+  }
+
+  // Create our base fragment shader
+  std::string fragShaderSrc =
+      core::LocalFile::ReadFileData("./src/shaders/base.frag");
+  GLuint fragShaderId = glCreateShader(GL_FRAGMENT_SHADER);
+  const char *fragShaderRawSource = fragShaderSrc.c_str();
+  glShaderSource(fragShaderId, 1, &fragShaderRawSource, NULL);
+  glCompileShader(fragShaderId);
+
+  // Check if the shader compilation succeeded
+  glGetShaderiv(vertShaderId, GL_COMPILE_STATUS, &success);
+  if (!success) {
+    glGetShaderInfoLog(vertShaderId, 512, NULL, infoLog);
+    std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n"
+              << infoLog << std::endl;
+  }
+
+  GLuint shaderProgramId = glCreateProgram();
+  glAttachShader(shaderProgramId, vertShaderId);
+  glAttachShader(shaderProgramId, fragShaderId);
+  glLinkProgram(shaderProgramId);
+
+  glGetProgramiv(shaderProgramId, GL_LINK_STATUS, &success);
+  if (!success) {
+    glGetProgramInfoLog(shaderProgramId, 512, NULL, infoLog);
+    std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
+              << infoLog << std::endl;
+  }
+  glUseProgram(shaderProgramId);
+  glDeleteShader(vertShaderId);
+  glDeleteShader(fragShaderId);
+
+  glViewport(0, 0, wnd_width, wnd_height);
   SDL_Event event = {0};
   bool should_quit = false;
   while (!should_quit) {
@@ -79,7 +147,6 @@ int main(int argc, char *argv[]) {
       case SDL_KEYDOWN:
         switch (event.key.keysym.sym) {
         case SDLK_ESCAPE:
-          std::cout << "Closing" << std::endl;
           should_quit = true;
           break;
         }
@@ -87,20 +154,20 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // Clear the screen to BLACK:
+    // Clear the window viewport
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-    glVertexAttribPointer(0, // attribute 0. No particular reason for 0, but
-                             // must match the layout in the shader.
-                          3, // size
-                          GL_FLOAT, // type
-                          GL_FALSE, // normalized?
-                          0,        // stride
-                          (void *)0 // array buffer offset
-    );
+    glVertexAttribPointer(0, sizeof(glm::vec3) / sizeof(float), GL_FLOAT,
+                          GL_FALSE, sizeof(Vertex),
+                          (void *)offsetof(Vertex, position));
+    glVertexAttribPointer(1, sizeof(glm::vec4) / sizeof(float), GL_FLOAT,
+                          GL_FALSE, sizeof(Vertex),
+                          (void *)offsetof(Vertex, color));
+
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
 
     // Draw the triangle !
     glDrawArrays(GL_TRIANGLES, 0,
@@ -108,7 +175,7 @@ int main(int argc, char *argv[]) {
 
     glDisableVertexAttribArray(0);
 
-    // PRESENT BACKBUFFER:
+    // Swap the front with the back buffer
     SDL_GL_SwapWindow(main_window);
   }
 
