@@ -26,9 +26,6 @@ struct Vertex {
 
 int main(int argc, char *argv[]) {
   int wnd_width = 800, wnd_height = 600;
-  // std::string fragmentShader =
-  // core::LocalFile::ReadFileData("./src/shaders/base.glsl");
-
   // Initialize SDL
   GP_ERR(SDL_Init(SDL_INIT_EVENTS) >= 0, "Failed to initialize SDL");
 
@@ -68,24 +65,10 @@ int main(int argc, char *argv[]) {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   static const Vertex vertices[] = {
-      // Vertex(glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec4(1.0f, 0.0f,
-      // 0.0f, 1.0f)),
-      // Vertex(glm::vec3(0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f,
-      // 0.0f, 1.0f)),
-      // Vertex(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)),
-
       Vertex(glm::vec3(0.5f, 0.5f, 0.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)),
       Vertex(glm::vec3(0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)),
       Vertex(glm::vec3(-0.5f, 0.5f, 0.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)),
       Vertex(glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)),
-
-      // Vertex(glm::vec3(0.5f, 0.5f, 0.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)),
-      // Vertex(glm::vec3(0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f,
-      // 0.0f, 1.0f)),
-      // Vertex(glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec4(0.0f,
-      // 0.0f, 1.0f, 1.0f)),
-      // Vertex(glm::vec3(-0.5f, 0.5f, 0.0f), glm::vec4(0.0f, 1.0f,
-      // 0.0f, 1.0f)),
   };
 
   static const unsigned int indices[] = {
@@ -127,7 +110,7 @@ int main(int argc, char *argv[]) {
 
   // Create our base vertex shader
   std::string vertexShaderSrc =
-      core::LocalFile::ReadFileData("./src/shaders/base.vert");
+      core::LocalFile::ReadFileData("./src/shaders/base_vs.glsl");
   GLuint vertShaderId = glCreateShader(GL_VERTEX_SHADER);
   const char *vertexShaderRawSource = vertexShaderSrc.c_str();
   glShaderSource(vertShaderId, 1, &vertexShaderRawSource, NULL);
@@ -145,7 +128,7 @@ int main(int argc, char *argv[]) {
 
   // Create our base fragment shader
   std::string fragShaderSrc =
-      core::LocalFile::ReadFileData("./src/shaders/base.frag");
+      core::LocalFile::ReadFileData("./src/shaders/base_fs.glsl");
   GLuint fragShaderId = glCreateShader(GL_FRAGMENT_SHADER);
   const char *fragShaderRawSource = fragShaderSrc.c_str();
   glShaderSource(fragShaderId, 1, &fragShaderRawSource, NULL);
@@ -172,8 +155,6 @@ int main(int argc, char *argv[]) {
     std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
               << infoLog << std::endl;
   }
-
-  // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
   glViewport(0, 0, wnd_width, wnd_height);
   SDL_Event event = {0};
   bool should_quit = false;
@@ -189,7 +170,15 @@ int main(int argc, char *argv[]) {
           glViewport(0, 0, wnd_width, wnd_height);
         }
         break;
+      case SDL_MOUSEBUTTONDOWN:
+        GLubyte pixel[4];
+        glReadPixels(event.motion.x, wnd_height - event.motion.y, 1, 1, GL_RGBA,
+                     GL_UNSIGNED_BYTE, pixel);
+        printf("R: %u G: %u B: %u A: %u\n", pixel[0], pixel[1], pixel[2],
+               pixel[3]);
+        break;
       case SDL_KEYDOWN:
+
         switch (event.key.keysym.sym) {
         case SDLK_DOWN:
           glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
