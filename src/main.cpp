@@ -1,14 +1,15 @@
-#include "SDL_error.h"
 #include "SDL_keycode.h"
+#include "SDL_timer.h"
 #include "SDL_video.h"
 #include "core/localFile.hpp"
-#include <GLES/gl.h>
-#include <GLES2/gl2.h>
+#include "shaders/shader.hpp"
 #include <SDL.h>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <glad/glad.h>
+#include <glm/fwd.hpp>
 #include <glm/glm.hpp>
 #include <glm/vec3.hpp>
 #include <iostream>
@@ -108,53 +109,10 @@ int main(int argc, char *argv[]) {
 
   glBindVertexArray(0);
 
-  // Create our base vertex shader
-  std::string vertexShaderSrc =
-      core::LocalFile::ReadFileData("./src/shaders/base_vs.glsl");
-  GLuint vertShaderId = glCreateShader(GL_VERTEX_SHADER);
-  const char *vertexShaderRawSource = vertexShaderSrc.c_str();
-  glShaderSource(vertShaderId, 1, &vertexShaderRawSource, NULL);
-  glCompileShader(vertShaderId);
+  // custom shaders
+  auto program = ShaderProgram("./assets/shaders/base_vs.glsl",
+                               "./assets/shaders/base_fs.glsl");
 
-  // Check if the shader compilation succeeded
-  int success;
-  char infoLog[512];
-  glGetShaderiv(vertShaderId, GL_COMPILE_STATUS, &success);
-  if (!success) {
-    glGetShaderInfoLog(vertShaderId, 512, NULL, infoLog);
-    std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n"
-              << infoLog << std::endl;
-  }
-
-  // Create our base fragment shader
-  std::string fragShaderSrc =
-      core::LocalFile::ReadFileData("./src/shaders/base_fs.glsl");
-  GLuint fragShaderId = glCreateShader(GL_FRAGMENT_SHADER);
-  const char *fragShaderRawSource = fragShaderSrc.c_str();
-  glShaderSource(fragShaderId, 1, &fragShaderRawSource, NULL);
-  glCompileShader(fragShaderId);
-
-  // Check if the shader compilation succeeded
-  glGetShaderiv(vertShaderId, GL_COMPILE_STATUS, &success);
-  if (!success) {
-    glGetShaderInfoLog(vertShaderId, 512, NULL, infoLog);
-    std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n"
-              << infoLog << std::endl;
-  }
-
-  GLuint shaderProgramId = glCreateProgram();
-  glAttachShader(shaderProgramId, vertShaderId);
-  glAttachShader(shaderProgramId, fragShaderId);
-  glLinkProgram(shaderProgramId);
-  glDeleteShader(vertShaderId);
-  glDeleteShader(fragShaderId);
-
-  glGetProgramiv(shaderProgramId, GL_LINK_STATUS, &success);
-  if (!success) {
-    glGetProgramInfoLog(shaderProgramId, 512, NULL, infoLog);
-    std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
-              << infoLog << std::endl;
-  }
   glViewport(0, 0, wnd_width, wnd_height);
   SDL_Event event = {0};
   bool should_quit = false;
@@ -198,7 +156,14 @@ int main(int argc, char *argv[]) {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    glUseProgram(shaderProgramId);
+    // Use our shader program
+    program.use();
+
+    float time = SDL_GetTicks64() / 1000.0f;
+    float animatedGreen = sin(time) / 2.0f + 0.5f;
+    program.setUniform("ourColor", glm::vec4(0.0f, animatedGreen, 0.0f, 1.0f));
+
+    // Bind our VAO for the vertex data, element data, and vertex attributes
     glBindVertexArray(vao);
 
     // Draw the triangle !
