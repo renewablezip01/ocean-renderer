@@ -66,17 +66,17 @@ int main(int argc, char *argv[]) {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   static const Vertex vertices[] = {
-      Vertex(glm::vec3(0.5f, 0.5f, 0.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)),
-      Vertex(glm::vec3(0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)),
-      Vertex(glm::vec3(-0.5f, 0.5f, 0.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)),
       Vertex(glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)),
+      Vertex(glm::vec3(0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)),
+      Vertex(glm::vec3(0.5f, 0.5f, 0.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)),
+      Vertex(glm::vec3(-0.5f, 0.5f, 0.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)),
   };
 
   static const unsigned int indices[] = {
       // First triangle
       0, 1, 2,
       // Second triangle
-      1, 3, 2
+      3, 2, 0
       // End
   };
 
@@ -158,10 +158,7 @@ int main(int argc, char *argv[]) {
 
     // Use our shader program
     program.use();
-
-    float time = SDL_GetTicks64() / 1000.0f;
-    float animatedGreen = sin(time) / 2.0f + 0.5f;
-    program.setUniform("ourColor", glm::vec4(0.0f, animatedGreen, 0.0f, 1.0f));
+    program.setUniform("uTime", static_cast<int>(SDL_GetTicks()));
 
     // Bind our VAO for the vertex data, element data, and vertex attributes
     glBindVertexArray(vao);
