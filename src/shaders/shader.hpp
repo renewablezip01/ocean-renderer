@@ -9,8 +9,9 @@ public:
 
   void setUniform(const std::string &name, int data);
   void setUniform(const std::string &name, float data);
-  void setUniform(const std::string &name, glm::vec3 data);
-  void setUniform(const std::string &name, glm::vec4 data);
+  void setUniform(const std::string &name, const glm::vec3 &data);
+  void setUniform(const std::string &name, const glm::vec4 &data);
+  void setUniform(const std::string &uniform, const glm::mat4 &data);
 
   int getVertexId();
   int getFragId();

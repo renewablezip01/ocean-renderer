@@ -1,17 +1,18 @@
 #include "SDL_keycode.h"
 #include "SDL_timer.h"
 #include "SDL_video.h"
-#include "core/localFile.hpp"
 #include "shaders/shader.hpp"
 #include <SDL.h>
-#include <cassert>
-#include <cmath>
-
 #include <cstddef>
 #include <cstdio>
+#include <ctime>
 #include <glad/glad.h>
+#include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/trigonometric.hpp>
 #include <glm/vec3.hpp>
 #include <iostream>
 #include <stdio.h>
@@ -19,8 +20,6 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "core/stb_image.h"
-// #include <GLES/gl.h>
-// #include <GLES2/gl2.h>
 
 #define GP_ERR(exp, msg) assert(((void)msg, exp))
 
@@ -191,6 +190,8 @@ int main(int argc, char *argv[]) {
   // Create our transform matrix
   SDL_GL_SetSwapInterval(0);
 
+  long frames = 0;
+  long currentTime = 0;
   while (!should_quit) {
     while (SDL_PollEvent(&event)) {
       switch (event.type) {
@@ -228,6 +229,26 @@ int main(int argc, char *argv[]) {
     }
 
     unsigned int ticks = SDL_GetTicks();
+
+    frames++;
+    if ((ticks - currentTime) > 1000) {
+      currentTime = ticks;
+      std::cout << frames << " fps\n";
+      frames = 0;
+    }
+
+    // Use our shader program
+    program.use();
+    program.setUniform("uTime", static_cast<int>(ticks));
+
+    auto trans = glm::mat4(1.0f);
+    trans = glm::scale(trans, glm::vec3(0.5f));
+    auto anim = glm::radians(ticks / 10.0f);
+    trans = glm::translate(trans,
+                           glm::vec3(0.0f, glm::sin((anim) + 1.0f) / 2, 0.0f));
+    trans = glm::rotate(trans, anim, glm::vec3(0.0f, 0.0f, 1.0f));
+    program.setUniform("uTranslate", trans);
+
     // Clear the window viewport
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -238,10 +259,6 @@ int main(int argc, char *argv[]) {
 
     glActiveTexture(GL_TEXTURE1); // Set the texture unit to 1
     glBindTexture(GL_TEXTURE_2D, textureHappy);
-
-    // Use our shader program
-    program.use();
-    program.setUniform("uTime", static_cast<int>(ticks));
 
     // Bind our VAO for the vertex data, element data, and vertex attributes
     glBindVertexArray(vao);

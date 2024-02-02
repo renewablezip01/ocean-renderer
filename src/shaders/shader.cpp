@@ -1,5 +1,6 @@
 #include "shader.hpp"
 #include "core/localFile.hpp"
+#include <glm/gtc/type_ptr.hpp>
 #include <stdio.h>
 
 using namespace core;
@@ -40,16 +41,24 @@ void ShaderProgram::setUniform(const std::string &uniform, int data) {
   glUniform1i(location, data);
 }
 
+void ShaderProgram::setUniform(const std::string &uniform,
+                               const glm::mat4 &data) {
+  GLuint location = this->getUniformLocation(uniform);
+  glad_glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(data));
+}
+
 void ShaderProgram::setUniform(const std::string &uniform, float data) {
   GLuint location = this->getUniformLocation(uniform);
   glUniform1f(location, data);
 }
 
-void ShaderProgram::setUniform(const std::string &uniform, glm::vec3 data) {
+void ShaderProgram::setUniform(const std::string &uniform,
+                               const glm::vec3 &data) {
   GLuint location = this->getUniformLocation(uniform);
   glUniform3f(location, data.x, data.y, data.z);
 }
-void ShaderProgram::setUniform(const std::string &uniform, glm::vec4 data) {
+void ShaderProgram::setUniform(const std::string &uniform,
+                               const glm::vec4 &data) {
   GLuint location = this->getUniformLocation(uniform);
   glUniform4f(location, data.x, data.y, data.z, data.w);
 }

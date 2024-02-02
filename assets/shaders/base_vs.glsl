@@ -12,5 +12,5 @@ void main()
 {
     fColor = aColor;
     fTexCoord = aTexCoord;
-    gl_Position = vec4(aPos, 1.0);
+    gl_Position = uTranslate * vec4(aPos, 1.0);
 }
