@@ -18,6 +18,6 @@ add_subdirectory(dependencies/SDL/)
 include_directories(dependencies/SDL/include/)
 include_directories(src/) # For easier includes
 
-add_executable(GraphicsProgramming src/main.cpp src/core/localFile.cpp src/core/localFile.hpp src/shaders/shader.cpp src/shaders/shader.hpp)
+add_executable(GraphicsProgramming src/main.cpp src/core/stb_image.h src/core/localFile.cpp src/core/localFile.hpp src/shaders/shader.cpp src/shaders/shader.hpp)
 target_link_libraries(GraphicsProgramming SDL2-static glad glm::glm)
 target_precompile_headers(GraphicsProgramming PRIVATE src/precompiled.hpp)

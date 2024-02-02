@@ -6,6 +6,7 @@
 #include <SDL.h>
 #include <cassert>
 #include <cmath>
+
 #include <cstddef>
 #include <cstdio>
 #include <glad/glad.h>
@@ -16,13 +17,21 @@
 #include <stdio.h>
 #include <string>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "core/stb_image.h"
+// #include <GLES/gl.h>
+// #include <GLES2/gl2.h>
+
 #define GP_ERR(exp, msg) assert(((void)msg, exp))
 
 struct Vertex {
   glm::vec3 position;
   glm::vec4 color;
-  Vertex(const glm::vec3 &position, const glm::vec4 &color)
-      : position(position), color(color) {}
+  glm::vec2 texture_coords;
+
+  Vertex(const glm::vec3 &position, const glm::vec4 &color,
+         const glm::vec2 &texture_coords)
+      : position(position), color(color), texture_coords(texture_coords) {}
 };
 
 int main(int argc, char *argv[]) {
@@ -66,10 +75,14 @@ int main(int argc, char *argv[]) {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   static const Vertex vertices[] = {
-      Vertex(glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)),
-      Vertex(glm::vec3(0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)),
-      Vertex(glm::vec3(0.5f, 0.5f, 0.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)),
-      Vertex(glm::vec3(-0.5f, 0.5f, 0.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)),
+      Vertex(glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f),
+             glm::vec2(0.0f, 0.0f)),
+      Vertex(glm::vec3(0.5f, -0.5f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f),
+             glm::vec2(1.0f, 0.0f)),
+      Vertex(glm::vec3(0.5f, 0.5f, 0.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f),
+             glm::vec2(1.0f, 1.0f)),
+      Vertex(glm::vec3(-0.5f, 0.5f, 0.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
+             glm::vec2(0.0f, 1.0f)),
   };
 
   static const unsigned int indices[] = {
@@ -79,6 +92,54 @@ int main(int argc, char *argv[]) {
       3, 2, 0
       // End
   };
+
+  stbi_set_flip_vertically_on_load(
+      true); // Flip y-axis so that bottom becomes 0.0
+
+  // Load our texture into the GPU
+  GLuint textureContainer;
+  {
+    glGenTextures(1, &textureContainer);
+    glBindTexture(GL_TEXTURE_2D, textureContainer);
+    int texWidth, texHeight, nrChannels;
+    unsigned char *data = stbi_load("./assets/textures/container.jpg",
+                                    &texWidth, &texHeight, &nrChannels, 0);
+
+    // (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei
+    // height, GLint border, GLenum format, GLenum type, const void *pixels);
+    if (data) {
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGB,
+                   GL_UNSIGNED_BYTE, data);
+      glGenerateMipmap(GL_TEXTURE_2D);
+    } else {
+      std::cout << "Failed to load texture"
+                << "\n";
+    }
+
+    stbi_image_free(data);
+  }
+
+  GLuint textureHappy;
+  {
+    glGenTextures(1, &textureHappy);
+    glBindTexture(GL_TEXTURE_2D, textureHappy);
+    int texWidth, texHeight, nrChannels;
+    unsigned char *data = stbi_load("./assets/textures/awesomeface.png",
+                                    &texWidth, &texHeight, &nrChannels, 0);
+
+    // (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei
+    // height, GLint border, GLenum format, GLenum type, const void *pixels);
+    if (data) {
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGBA,
+                   GL_UNSIGNED_BYTE, data);
+      glGenerateMipmap(GL_TEXTURE_2D);
+    } else {
+      std::cout << "Failed to load texture"
+                << "\n";
+    }
+
+    stbi_image_free(data);
+  }
 
   GLuint vao;
   glGenVertexArrays(1, &vao);
@@ -104,8 +165,13 @@ int main(int argc, char *argv[]) {
                         GL_FALSE, sizeof(Vertex),
                         (void *)offsetof(Vertex, color));
 
+  glVertexAttribPointer(2, sizeof(glm::vec2) / sizeof(float), GL_FLOAT,
+                        GL_FALSE, sizeof(Vertex),
+                        (void *)offsetof(Vertex, texture_coords));
+
   glEnableVertexAttribArray(0);
   glEnableVertexAttribArray(1);
+  glEnableVertexAttribArray(2);
 
   glBindVertexArray(0);
 
@@ -116,6 +182,15 @@ int main(int argc, char *argv[]) {
   glViewport(0, 0, wnd_width, wnd_height);
   SDL_Event event = {0};
   bool should_quit = false;
+  // glm::vec2 mouse = glm::vec2(0.0f, 0.0f);
+
+  program.use();
+  program.setUniform("ourContainerTexture", 0);
+  program.setUniform("ourHappyFaceTexture", 1);
+
+  // Create our transform matrix
+  SDL_GL_SetSwapInterval(0);
+
   while (!should_quit) {
     while (SDL_PollEvent(&event)) {
       switch (event.type) {
@@ -152,13 +227,21 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    unsigned int ticks = SDL_GetTicks();
     // Clear the window viewport
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
+    // Bind our texture
+    glActiveTexture(GL_TEXTURE0); // Set the texture unit to 0
+    glBindTexture(GL_TEXTURE_2D, textureContainer);
+
+    glActiveTexture(GL_TEXTURE1); // Set the texture unit to 1
+    glBindTexture(GL_TEXTURE_2D, textureHappy);
+
     // Use our shader program
     program.use();
-    program.setUniform("uTime", static_cast<int>(SDL_GetTicks()));
+    program.setUniform("uTime", static_cast<int>(ticks));
 
     // Bind our VAO for the vertex data, element data, and vertex attributes
     glBindVertexArray(vao);
