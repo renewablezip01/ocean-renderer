@@ -1,5 +1,6 @@
+#include "SDL_keyboard.h"
 #include "SDL_keycode.h"
-#include "SDL_opengl.h"
+#include "SDL_mouse.h"
 #include "SDL_timer.h"
 #include "SDL_video.h"
 #include "shaders/shader.hpp"
@@ -19,6 +20,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <string>
+#include <vector>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "core/stb_image.h"
@@ -173,6 +175,16 @@ int main(int argc, char *argv[]) {
       glm::vec3(1.3f, -2.0f, -2.5f),  glm::vec3(1.5f, 2.0f, -2.5f),
       glm::vec3(1.5f, 0.2f, -1.5f),   glm::vec3(-1.3f, 1.0f, -1.5f)};
 
+  constexpr int posSize = 5;
+  std::vector<glm::vec3> positions(posSize ^ 3);
+  for (int x = 0; x < posSize; x++) {
+    for (int y = 0; y < posSize; y++) {
+      for (int z = 0; z < posSize; z++) {
+        positions.emplace_back(glm::vec3(x, y, z));
+      }
+    }
+  }
+
   static const unsigned int indices[] = {
       // First triangle
       0, 1, 2,
@@ -193,8 +205,9 @@ int main(int argc, char *argv[]) {
     unsigned char *data = stbi_load("./assets/textures/container.jpg",
                                     &texWidth, &texHeight, &nrChannels, 0);
 
-    // (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei
-    // height, GLint border, GLenum format, GLenum type, const void *pixels);
+    // (GLenum target, GLint level, GLint internalformat, GLsizei width,
+    // GLsizei height, GLint border, GLenum format, GLenum type, const void
+    // *pixels);
     if (data) {
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGB,
                    GL_UNSIGNED_BYTE, data);
@@ -215,8 +228,9 @@ int main(int argc, char *argv[]) {
     unsigned char *data = stbi_load("./assets/textures/awesomeface.png",
                                     &texWidth, &texHeight, &nrChannels, 0);
 
-    // (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei
-    // height, GLint border, GLenum format, GLenum type, const void *pixels);
+    // (GLenum target, GLint level, GLint internalformat, GLsizei width,
+    // GLsizei height, GLint border, GLenum format, GLenum type, const void
+    // *pixels);
     if (data) {
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGBA,
                    GL_UNSIGNED_BYTE, data);
@@ -271,18 +285,56 @@ int main(int argc, char *argv[]) {
   glEnable(GL_DEPTH_TEST);
   SDL_Event event = {0};
   bool should_quit = false;
-  // glm::vec2 mouse = glm::vec2(0.0f, 0.0f);
 
   program.use();
   program.setUniform("ourContainerTexture", 0);
   program.setUniform("ourHappyFaceTexture", 1);
 
-  // Create our transform matrix
+  // Set Vsync off
   SDL_GL_SetSwapInterval(0);
 
   long frames = 0;
   long currentTime = 0;
+
+  auto cameraPosition = glm::vec3(0.0f, 0.0f, 3.0f);
+  auto cameraTarget = glm::vec3(0.0f, 0.0f, -1.0f);
+  auto cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+  const Uint8 *keystates = SDL_GetKeyboardState(NULL);
+
+  SDL_SetWindowGrab(main_window, SDL_TRUE);
+  SDL_SetRelativeMouseMode(SDL_TRUE);
+
+  float yaw = -90.0f;
+  float pitch = 0.0f;
+
   while (!should_quit) {
+    unsigned int ticks = SDL_GetTicks();
+    uint32_t deltaTime = ticks - currentTime;
+    currentTime = ticks;
+
+    float cameraSpeed = 0.005f * deltaTime;
+    if (keystates[SDL_SCANCODE_LSHIFT])
+      cameraSpeed = 0.02f * deltaTime;
+
+    glm::vec3 direction =
+        glm::vec3(cos(glm::radians(yaw)) * cos(glm::radians(pitch)),
+                  sin(glm::radians(pitch)),
+                  sin(glm::radians(yaw)) * cos(glm::radians(pitch)));
+    cameraTarget = glm::normalize(direction);
+
+    if (keystates[SDL_SCANCODE_UP] || keystates[SDL_SCANCODE_W])
+      // cameraPosition += glm::vec3(0.0f, 0.0f, cameraSpeed) * cameraTarget;
+      cameraPosition += cameraSpeed * cameraTarget;
+    if (keystates[SDL_SCANCODE_DOWN] || keystates[SDL_SCANCODE_S])
+      cameraPosition -= cameraSpeed * cameraTarget; // change to add delta
+    if (keystates[SDL_SCANCODE_RIGHT] || keystates[SDL_SCANCODE_D])
+      cameraPosition += glm::normalize(glm::cross(cameraTarget, cameraUp)) *
+                        cameraSpeed; // change to add delta
+    if (keystates[SDL_SCANCODE_LEFT] || keystates[SDL_SCANCODE_A])
+      cameraPosition -= glm::normalize(glm::cross(cameraTarget, cameraUp)) *
+                        cameraSpeed; // change to add delta
+
     while (SDL_PollEvent(&event)) {
       switch (event.type) {
       case SDL_QUIT:
@@ -294,6 +346,17 @@ int main(int argc, char *argv[]) {
           glViewport(0, 0, wnd_width, wnd_height);
         }
         break;
+      case SDL_MOUSEMOTION: {
+        constexpr float sensitivity = 0.2f;
+        yaw += event.motion.xrel * sensitivity;
+        pitch -= event.motion.yrel * sensitivity;
+        if (pitch > 89.0f)
+          pitch = 89.0f;
+        if (pitch < -89.0f)
+          pitch = -89.0f;
+        // printf("(%i, %i)\n", event.motion.x, event.motion.y);
+
+      } break;
       case SDL_MOUSEBUTTONDOWN:
         GLubyte pixel[4];
         glReadPixels(event.motion.x, wnd_height - event.motion.y, 1, 1, GL_RGBA,
@@ -301,13 +364,22 @@ int main(int argc, char *argv[]) {
         printf("R: %u G: %u B: %u A: %u\n", pixel[0], pixel[1], pixel[2],
                pixel[3]);
         break;
-      case SDL_KEYDOWN:
-
+      case SDL_KEYMAPCHANGED:
         switch (event.key.keysym.sym) {
-        case SDLK_DOWN:
+        case SDLK_x:
+          printf("hehe\n");
+          break;
+        }
+        break;
+      case SDL_KEYDOWN:
+        // if (event.key.keysym.scancode & SDL_SCANCODE_LSHIFT) {
+        //   printf("shifted!\n");
+        // }
+        switch (event.key.keysym.sym) {
+        case SDLK_x:
           glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
           break;
-        case SDLK_UP:
+        case SDLK_z:
           glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
           break;
         case SDLK_ESCAPE:
@@ -318,20 +390,18 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    unsigned int ticks = SDL_GetTicks();
-
-    frames++;
-    if ((ticks - currentTime) > 1000) {
-      currentTime = ticks;
-      std::cout << frames << " fps\n";
-      frames = 0;
-    }
+    // frames++;
+    // if ((ticks - currentTime) > 1000) {
+    //   currentTime = ticks;
+    //   std::cout << frames << " fps\n";
+    //   frames = 0;
+    // }
 
     // Use our shader program
     program.use();
 
-    auto view = glm::mat4(1.0f);
-    view = glm::translate(view, glm::vec3(0.0f, 0.0f, -5.0f));
+    auto view =
+        glm::lookAt(cameraPosition, cameraPosition + cameraTarget, cameraUp);
 
     auto projection = glm::perspective(
         glm::radians(45.0f), static_cast<float>(wnd_width / wnd_height), 0.1f,
@@ -355,18 +425,18 @@ int main(int argc, char *argv[]) {
     // Bind our VAO for the vertex data, element data, and vertex attributes
     glBindVertexArray(vao);
 
-    for (int i = 0; i < 10; i++) {
-      auto model = glm::mat4(1.0f);
-      model = glm::translate(model, cubePositions[i]);
-      model = glm::rotate(model, ticks / 1000.0f * glm::radians(-55.0f),
-                          glm::vec3(1.0f, 1.0f, 0.0f)); // model matrix
+    for (int i = 0; i < positions.size(); i++) {
+      auto model = glm::translate(glm::mat4(1.0f), positions[i]);
 
+      // for (int i = 0; i < 10; i++) {
+      //   auto model = glm::translate(glm::mat4(1.0f), cubePositions[i]);
       program.setUniform("uModel", model);
 
       // Draw the triangle !
       // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
       glDrawArrays(GL_TRIANGLES, 0, 36);
     }
+
     glBindVertexArray(0);
 
     // Swap the front with the back buffer
