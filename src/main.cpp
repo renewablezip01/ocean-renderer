@@ -175,7 +175,7 @@ int main(int argc, char *argv[]) {
       glm::vec3(1.3f, -2.0f, -2.5f),  glm::vec3(1.5f, 2.0f, -2.5f),
       glm::vec3(1.5f, 0.2f, -1.5f),   glm::vec3(-1.3f, 1.0f, -1.5f)};
 
-  constexpr int posSize = 5;
+  constexpr int posSize = 10;
   std::vector<glm::vec3> positions(posSize ^ 3);
   for (int x = 0; x < posSize; x++) {
     for (int y = 0; y < posSize; y++) {
@@ -302,12 +302,10 @@ int main(int argc, char *argv[]) {
 
   const Uint8 *keystates = SDL_GetKeyboardState(NULL);
 
-  SDL_SetWindowGrab(main_window, SDL_TRUE);
-  SDL_SetRelativeMouseMode(SDL_TRUE);
-
   float yaw = -90.0f;
   float pitch = 0.0f;
 
+  bool focused = true;
   while (!should_quit) {
     unsigned int ticks = SDL_GetTicks();
     uint32_t deltaTime = ticks - currentTime;
@@ -315,13 +313,15 @@ int main(int argc, char *argv[]) {
 
     float cameraSpeed = 0.005f * deltaTime;
     if (keystates[SDL_SCANCODE_LSHIFT])
-      cameraSpeed = 0.02f * deltaTime;
+      cameraSpeed = 0.025f * deltaTime;
 
-    glm::vec3 direction =
-        glm::vec3(cos(glm::radians(yaw)) * cos(glm::radians(pitch)),
-                  sin(glm::radians(pitch)),
-                  sin(glm::radians(yaw)) * cos(glm::radians(pitch)));
-    cameraTarget = glm::normalize(direction);
+    if (focused) {
+      glm::vec3 direction =
+          glm::vec3(cos(glm::radians(yaw)) * cos(glm::radians(pitch)),
+                    sin(glm::radians(pitch)),
+                    sin(glm::radians(yaw)) * cos(glm::radians(pitch)));
+      cameraTarget = glm::normalize(direction);
+    }
 
     if (keystates[SDL_SCANCODE_UP] || keystates[SDL_SCANCODE_W])
       // cameraPosition += glm::vec3(0.0f, 0.0f, cameraSpeed) * cameraTarget;
@@ -341,9 +341,24 @@ int main(int argc, char *argv[]) {
         should_quit = true;
         break;
       case SDL_WINDOWEVENT:
-        if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+        switch (event.window.event) {
+        case SDL_WINDOWEVENT_FOCUS_GAINED: {
+          SDL_SetWindowGrab(main_window, SDL_TRUE);
+          SDL_SetRelativeMouseMode(SDL_TRUE);
+          focused = true;
+          break;
+        }
+        case SDL_WINDOWEVENT_FOCUS_LOST: {
+          SDL_SetWindowGrab(main_window, SDL_FALSE);
+          SDL_SetRelativeMouseMode(SDL_FALSE);
+          focused = false;
+          break;
+        }
+        case SDL_WINDOWEVENT_RESIZED: {
           SDL_GetWindowSize(main_window, &wnd_width, &wnd_height);
           glViewport(0, 0, wnd_width, wnd_height);
+          break;
+        }
         }
         break;
       case SDL_MOUSEMOTION: {
