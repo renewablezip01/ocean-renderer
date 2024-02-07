@@ -3,12 +3,14 @@
 #include "SDL_mouse.h"
 #include "SDL_timer.h"
 #include "SDL_video.h"
+#include "core/camera/camera.hpp"
 #include "shaders/shader.hpp"
 #include <SDL.h>
 #include <cstddef>
 #include <cstdio>
 #include <ctime>
 #include <glad/glad.h>
+#include <glm/common.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
@@ -26,6 +28,7 @@
 #include "core/stb_image.h"
 
 #define GP_ERR(exp, msg) assert(((void)msg, exp))
+using namespace core;
 
 struct Vertex {
   glm::vec3 position;
@@ -168,22 +171,6 @@ int main(int argc, char *argv[]) {
       Vertex(glm::vec3(-0.5f, 0.5f, -0.5f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f),
              glm::vec2(0.0f, 1.0f)),
   };
-  glm::vec3 cubePositions[] = {
-      glm::vec3(0.0f, 0.0f, 0.0f),    glm::vec3(2.0f, 5.0f, -15.0f),
-      glm::vec3(-1.5f, -2.2f, -2.5f), glm::vec3(-3.8f, -2.0f, -12.3f),
-      glm::vec3(2.4f, -0.4f, -3.5f),  glm::vec3(-1.7f, 3.0f, -7.5f),
-      glm::vec3(1.3f, -2.0f, -2.5f),  glm::vec3(1.5f, 2.0f, -2.5f),
-      glm::vec3(1.5f, 0.2f, -1.5f),   glm::vec3(-1.3f, 1.0f, -1.5f)};
-
-  constexpr int posSize = 10;
-  std::vector<glm::vec3> positions(posSize ^ 3);
-  for (int x = 0; x < posSize; x++) {
-    for (int y = 0; y < posSize; y++) {
-      for (int z = 0; z < posSize; z++) {
-        positions.emplace_back(glm::vec3(x, y, z));
-      }
-    }
-  }
 
   static const unsigned int indices[] = {
       // First triangle
@@ -293,47 +280,37 @@ int main(int argc, char *argv[]) {
   // Set Vsync off
   SDL_GL_SetSwapInterval(0);
 
-  long frames = 0;
-  long currentTime = 0;
-
-  auto cameraPosition = glm::vec3(0.0f, 0.0f, 3.0f);
-  auto cameraTarget = glm::vec3(0.0f, 0.0f, -1.0f);
-  auto cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+  uint32_t frames = 0;
+  uint32_t lastTime = 0;
+  uint32_t lastSecond = 0;
 
   const Uint8 *keystates = SDL_GetKeyboardState(NULL);
-
-  float yaw = -90.0f;
-  float pitch = 0.0f;
-
   bool focused = true;
+  Camera camera = Camera();
   while (!should_quit) {
-    unsigned int ticks = SDL_GetTicks();
-    uint32_t deltaTime = ticks - currentTime;
-    currentTime = ticks;
-
-    float cameraSpeed = 0.005f * deltaTime;
-    if (keystates[SDL_SCANCODE_LSHIFT])
-      cameraSpeed = 0.025f * deltaTime;
-
-    if (focused) {
-      glm::vec3 direction =
-          glm::vec3(cos(glm::radians(yaw)) * cos(glm::radians(pitch)),
-                    sin(glm::radians(pitch)),
-                    sin(glm::radians(yaw)) * cos(glm::radians(pitch)));
-      cameraTarget = glm::normalize(direction);
+    uint32_t ticks = SDL_GetTicks();
+    float deltaTime = ticks - lastTime;
+    lastTime = ticks;
+    frames++;
+    if ((ticks - lastSecond) > 1000) {
+      lastSecond = ticks;
+      SDL_SetWindowTitle(
+          main_window,
+          std::string("Sandbox - " + std::to_string(frames) + " fps").c_str());
+      frames = 0;
     }
 
-    if (keystates[SDL_SCANCODE_UP] || keystates[SDL_SCANCODE_W])
-      // cameraPosition += glm::vec3(0.0f, 0.0f, cameraSpeed) * cameraTarget;
-      cameraPosition += cameraSpeed * cameraTarget;
-    if (keystates[SDL_SCANCODE_DOWN] || keystates[SDL_SCANCODE_S])
-      cameraPosition -= cameraSpeed * cameraTarget; // change to add delta
-    if (keystates[SDL_SCANCODE_RIGHT] || keystates[SDL_SCANCODE_D])
-      cameraPosition += glm::normalize(glm::cross(cameraTarget, cameraUp)) *
-                        cameraSpeed; // change to add delta
-    if (keystates[SDL_SCANCODE_LEFT] || keystates[SDL_SCANCODE_A])
-      cameraPosition -= glm::normalize(glm::cross(cameraTarget, cameraUp)) *
-                        cameraSpeed; // change to add delta
+    if (focused)
+      camera.MoveByKeyboard(keystates, deltaTime);
+    const auto &cameraTarget = camera.GetTarget();
+    const auto &cameraPosition = camera.GetPosition();
+    auto view = glm::lookAt(cameraPosition, cameraPosition + cameraTarget,
+                            glm::vec3(0.0f, 1.0f, 0.0f));
+
+    if (keystates[SDL_SCANCODE_SPACE]) {
+      camera.SetPosition(cameraPosition +
+                         glm::vec3(0.0f, 0.005f * deltaTime, 0.0f));
+    }
 
     while (SDL_PollEvent(&event)) {
       switch (event.type) {
@@ -361,17 +338,9 @@ int main(int argc, char *argv[]) {
         }
         }
         break;
-      case SDL_MOUSEMOTION: {
-        constexpr float sensitivity = 0.2f;
-        yaw += event.motion.xrel * sensitivity;
-        pitch -= event.motion.yrel * sensitivity;
-        if (pitch > 89.0f)
-          pitch = 89.0f;
-        if (pitch < -89.0f)
-          pitch = -89.0f;
-        // printf("(%i, %i)\n", event.motion.x, event.motion.y);
-
-      } break;
+      case SDL_MOUSEMOTION:
+        camera.Update(event.motion.xrel, event.motion.yrel);
+        break;
       case SDL_MOUSEBUTTONDOWN:
         GLubyte pixel[4];
         glReadPixels(event.motion.x, wnd_height - event.motion.y, 1, 1, GL_RGBA,
@@ -379,17 +348,7 @@ int main(int argc, char *argv[]) {
         printf("R: %u G: %u B: %u A: %u\n", pixel[0], pixel[1], pixel[2],
                pixel[3]);
         break;
-      case SDL_KEYMAPCHANGED:
-        switch (event.key.keysym.sym) {
-        case SDLK_x:
-          printf("hehe\n");
-          break;
-        }
-        break;
       case SDL_KEYDOWN:
-        // if (event.key.keysym.scancode & SDL_SCANCODE_LSHIFT) {
-        //   printf("shifted!\n");
-        // }
         switch (event.key.keysym.sym) {
         case SDLK_x:
           glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -405,22 +364,12 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // frames++;
-    // if ((ticks - currentTime) > 1000) {
-    //   currentTime = ticks;
-    //   std::cout << frames << " fps\n";
-    //   frames = 0;
-    // }
-
     // Use our shader program
     program.use();
 
-    auto view =
-        glm::lookAt(cameraPosition, cameraPosition + cameraTarget, cameraUp);
-
-    auto projection = glm::perspective(
-        glm::radians(45.0f), static_cast<float>(wnd_width / wnd_height), 0.1f,
-        100.0f);
+    auto projection =
+        glm::perspective(glm::radians(45.0f),
+                         (float)wnd_width / (float)wnd_height, 0.1f, 100.0f);
 
     program.setUniform("uView", view);
     program.setUniform("uProjection", projection);
@@ -440,16 +389,16 @@ int main(int argc, char *argv[]) {
     // Bind our VAO for the vertex data, element data, and vertex attributes
     glBindVertexArray(vao);
 
-    for (int i = 0; i < positions.size(); i++) {
-      auto model = glm::translate(glm::mat4(1.0f), positions[i]);
-
-      // for (int i = 0; i < 10; i++) {
-      //   auto model = glm::translate(glm::mat4(1.0f), cubePositions[i]);
-      program.setUniform("uModel", model);
-
-      // Draw the triangle !
-      // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-      glDrawArrays(GL_TRIANGLES, 0, 36);
+    for (int x = 0; x < 30; x++) {
+      for (int z = 0; z < 30; z++) {
+        auto model = glm::translate(glm::mat4(1.0f), glm::vec3(x, 0, -z));
+        if ((x + z) % 2 == 0)
+          model = glm::translate(model, glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::translate(
+            model, glm::vec3(0.0f, (sin(ticks / 1000.0f + x)), 0.0f));
+        program.setUniform("uModel", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+      }
     }
 
     glBindVertexArray(0);

@@ -1,4 +1,7 @@
 #include "localFile.hpp"
+
+#include <fstream>
+#include <sstream>
 #include <string>
 
 std::string core::LocalFile::ReadFileData(const std::string &path) {
